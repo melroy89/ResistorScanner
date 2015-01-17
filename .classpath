@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="lib" path="jars/cmu_time_awb.jar"/>
+	<classpathentry kind="lib" path="jars/cmu_us_kal.jar"/>
+	<classpathentry kind="lib" path="jars/cmudict.jar"/>
+	<classpathentry kind="lib" path="jars/cmulex.jar"/>
+	<classpathentry kind="lib" path="jars/cmutimelex.jar"/>
+	<classpathentry kind="lib" path="jars/en_us.jar"/>
+	<classpathentry kind="lib" path="jars/freetts.jar"/>
+	<classpathentry kind="lib" path="jars/opencv.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>
