@@ -1,4 +1,6 @@
 package resitorscanner;
+
+import resitorscanner.EmptyIcon;
 import java.awt.Image;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
@@ -25,21 +27,23 @@ import com.sun.speech.freetts.VoiceManager;
 
 public class Webcam {
 	
-	public static VideoCapture	camera;
-	public static Voice		voice;
+	private static VideoCapture camera;
+	private static Voice voice;
+	private JFrame frame;
+	private static JLabel outLabel;
 	
-	public void setup(){
-		// Load the native library.
-		System.loadLibrary("opencv_java248");
-		
+	public void setup()
+	{		
 		// listAllVoices();
 		VoiceManager voiceManager = VoiceManager.getInstance();
 		voice = voiceManager.getVoice("kevin16");
 		voice.allocate();
 		
+		this.createFrame(); // Show GUI
+		
 		camera = new VideoCapture();
 		
-		camera.open(0); // Useless
+		camera.open(2); // Open first device (id: 0)
 		if (!camera.isOpened()) {
 			System.out.println("Camera Error");
 		}
@@ -47,39 +51,55 @@ public class Webcam {
 			System.out.println("Camera OK!");
 		}
 		
+		String foundValue = "";
 		while (camera.isOpened()) {
 			Mat frame = new Mat();
 			
-			
-			// camera.grab();
-			// System.out.println("Frame Grabbed");
-			// camera.retrieve(frame);
-			// System.out.println("Frame Decoded");
-			
-			camera.read(frame);
+			camera.read(frame); // read data
 			Core.flip(frame, frame, -1);
+
+			//System.out.println("Captured Frame Width: ",  frame.width());
 			
-			/*
-			 * No difference camera.release();
-			 */
-			
-			// System.out.println("Captured Frame Width " + frame.width());
-			
-			doMagic(frame);
-			showResult(toBufferedImage(frame));
-			
-			/*
-			 * try { Thread.sleep(10); } catch (InterruptedException e) { //
-			 */
+			foundValue = algorithm(frame);
+			if(foundValue != "")
+			{
+				System.out.println("Found: " + foundValue);
+				//voice.speak(foundValue);
+				break;
+			}
+			this.updateGUI(toBufferedImage(frame));
 		}	
-		closeCamera();
+		closeAll();
 	}
 	
-	public void closeCamera()
-	{
-		camera.release();
+	public void closeAll()
+	{	
+		frame.dispose();
+		voice.deallocate();
+		camera.release();		
 	}
 	
+	private void createFrame() {
+		frame = new JFrame();
+		frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+		frame.addWindowListener(new WindowAdapter() {
+			@Override
+			public void windowClosing(final WindowEvent e) {
+				int i = JOptionPane.showConfirmDialog(null, "Do you want to quit?");
+				if (i == 0)
+				{
+					closeAll();
+					System.exit(0);// kill aplicacion
+				}
+			}
+		});
+		EmptyIcon icon = new EmptyIcon(1024, 768);
+		outLabel = new JLabel(icon);
+		frame.getContentPane().add(outLabel);
+		frame.pack();
+		frame.setVisible(true);
+	}
+
 	public static void listAllVoices() {
 		System.out.println("\n\nList available voices:");
 		VoiceManager voiceManager = VoiceManager.getInstance();
@@ -106,40 +126,15 @@ public class Webcam {
 		return image;
 		
 	}
-	
-	static JLabel	outLabel;
-	
-	public static void showResult(final Image img) {
 		
-		if (outLabel == null) {
-			final JFrame frame = new JFrame();
-			frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-			frame.addWindowListener(new WindowAdapter() {
-				@Override
-				public void windowClosing(final WindowEvent e) {
-					int i = JOptionPane.showConfirmDialog(null, "Really quit?");
-					if (i == 0)
-					{
-						frame.dispose();
-						voice.deallocate();
-						camera.release();
-						System.exit(0);// kill aplicacion
-					}
-				}
-			});
-			outLabel = new JLabel(new ImageIcon(img));
-			frame.getContentPane().add(outLabel);
-			frame.pack();
-			frame.setVisible(true);
-		}
-		else {
+	public void updateGUI(final Image img) {		
+		if (outLabel != null) 
+		{
 			outLabel.setIcon(new ImageIcon(img));
 		}
-		
 	}
 	
-	public static Mat doMagic(final Mat image) {
-		
+	public static String algorithm(final Mat image) {
 		Imgproc.cvtColor(image, image, Imgproc.COLOR_BGR2RGB);
 		// Mat small = image.submat(image.rows()/2-100,
 		// image.rows()/2+100,image.cols()/2-200,image.cols()/2+200);
@@ -277,15 +272,17 @@ public class Webcam {
 						Imgproc.INTER_NEAREST);
 				res.copyTo(image.submat(new Rect(0, 0, res.cols(), res.rows())));
 				
-				detect(image, res);
+				String foundValue = detect(image, res);
+				if(foundValue != "")
+				{
+					return foundValue;
+				}
 				
 			}
 			
-			Core.line(small, new Point(minx, miny), new Point(maxx, maxy), new Scalar(255, 0, 0), 4);
-			
-		}
-		
-		return image;
+			Core.line(small, new Point(minx, miny), new Point(maxx, maxy), new Scalar(255, 0, 0), 4);			
+		}		
+		return "";
 	}
 	
 	static double	codes[][]		= { { 20, 20, 20 }, // black
@@ -342,7 +339,7 @@ public class Webcam {
 	private static int	contfound	= 0;
 	private static int	lastresult[];
 	
-	private static void detect(final Mat image, final Mat res) {
+	private static String detect(final Mat image, final Mat res) {
 		double bg[] = new double[3];
 		
 		for (int x = res.cols() - 50; x < res.cols(); x++) {
@@ -482,13 +479,8 @@ public class Webcam {
 						valuestring = String.format(Locale.US, "%d%s\n", (int) resistance, unit);
 					}
 					System.out.println(valuestring);
-					// if(voice.getOutputQueue().)
-					voice.speak(valuestring);
-					// if ((synthesizer1.getEngineState() &
-					// Synthesizer.QUEUE_EMPTY) > 0) {
-					// synthesizer1.speakPlainText(valuestring, null);
-					// }
 					contfound = 0;
+					return valuestring;					
 				}
 			}
 			else {
@@ -499,12 +491,12 @@ public class Webcam {
 		}
 		else {
 			contfound -= 2;
-			return;
+			return "";
 		}
 		if (contfound < 0) {
 			contfound = 0;
-		}
-		
+		}		
+		return "";
 	}
 	
 	static double calcvalue(final int rings[]) {
